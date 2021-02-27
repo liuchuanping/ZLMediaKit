@@ -126,6 +126,14 @@ extern const string kBroadcastStreamNoneReader;
 extern const string kBroadcastReloadConfig;
 #define BroadcastReloadConfigArgs void
 
+//发送服务的负载情况
+extern const string kBroadcastPayloadHeartbeat;
+#define BroadcastOnPayloadHeartbeatArgs void
+
+//发送服务上流的详细情况
+extern const string kBroadcastMediaListHeartbeat;
+#define BroadcastOnMediaListHeartbeatArgs void
+
 #define ReloadConfigTag  ((void *)(0xFF))
 #define RELOAD_KEY(arg,key) \
     do{ \
@@ -187,6 +195,8 @@ extern const string kRtspDemand;
 extern const string kRtmpDemand;
 extern const string kTSDemand;
 extern const string kFMP4Demand;
+extern const string kpayloadHeartbeat;
+extern const string kmediaListHeartbeat;
 }//namespace General
 
 

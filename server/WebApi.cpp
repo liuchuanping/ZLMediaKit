@@ -31,6 +31,7 @@
 #include "WebHook.h"
 #include "Thread/WorkThreadPool.h"
 #include "Rtp/RtpSelector.h"
+#include "Rtp/RtpChannel.h"
 #include "FFmpegSource.h"
 #if defined(ENABLE_RTPPROXY)
 #include "Rtp/RtpServer.h"
@@ -868,6 +869,37 @@ void installWebApi() {
         auto server = it->second;
         server->resumeRtpCheck();
         val["hit"] = 1;
+    });
+
+    api_regist("/index/api/registRtpChannel", [](API_ARGS_MAP) {
+        CHECK_SECRET();
+        CHECK_ARGS("stream", "domain","isReal");
+        auto stream = allArgs["stream"];
+        auto domain = allArgs["domain"];
+        auto isReal = allArgs["isReal"];
+        try {
+            RtpChannel::Ptr result = RtpChannelSelecter::Instance().regist((isReal == "0" ? false : true), domain, stream, [stream]() {
+                RtpChannelSelecter::Instance().delByStreamId(stream);
+            });
+            if (result) {
+                val["stream"] = result->getStreamId();
+                val["ssrc"] = result->getSsrc();
+            }
+            val["code"] = result ? API::Success : API::OtherFailed;
+            val["msg"] = result ? "success" : "regist rtp channel failed";
+        }
+        catch (...) {
+            throw ApiRetException("创建通道失败", API::OtherFailed);
+        }
+    });
+
+    api_regist("/index/api/unregistRtpChannel", [](API_ARGS_MAP) {
+        CHECK_SECRET();
+        CHECK_ARGS("stream");
+        RtpChannelSelecter::Instance().delByStreamId(allArgs["stream"]);
+        val["result"] = true;
+        val["code"] = API::Success;
+        val["msg"] = "success";
     });
 
 #endif//ENABLE_RTPPROXY

@@ -12,6 +12,7 @@
 #include <stddef.h>
 #include "RtpSelector.h"
 #include "RtpSplitter.h"
+#include "Rtp/RtpChannel.h"
 
 namespace mediakit{
 
@@ -29,13 +30,17 @@ bool RtpSelector::inputRtp(const Socket::Ptr &sock, const char *data, size_t dat
         WarnL << "get ssrc from rtp failed:" << data_len;
         return false;
     }
-    auto process = getProcess(printSSRC(ssrc), true);
-    if (process) {
-        try {
-            return process->inputRtp(true, sock, data, data_len, addr, dts_out);
-        } catch (...) {
-            delProcess(printSSRC(ssrc), process.get());
-            throw;
+    string stream_id = RtpChannelSelecter::Instance().getStreamId(ssrc);
+    if(stream_id.length() > 0){
+        auto process = getProcess(stream_id, false);
+        if (process) {
+            try {
+                return process->inputRtp(true, sock, data, data_len, addr, dts_out);
+            }
+            catch (...) {
+                delProcess(stream_id, process.get());
+                throw;
+            }
         }
     }
     return false;

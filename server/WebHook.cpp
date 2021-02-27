@@ -19,6 +19,7 @@
 #include "Rtsp/RtspSession.h"
 #include "Http/HttpSession.h"
 #include "WebHook.h"
+#include "Common/HeartbeatManager.h"
 
 using namespace toolkit;
 using namespace mediakit;
@@ -41,6 +42,8 @@ const string kOnShellLogin = HOOK_FIELD"on_shell_login";
 const string kOnStreamNoneReader = HOOK_FIELD"on_stream_none_reader";
 const string kOnHttpAccess = HOOK_FIELD"on_http_access";
 const string kOnServerStarted = HOOK_FIELD"on_server_started";
+const string kOnPayloadHeartbeat = HOOK_FIELD"on_payload_heartbeat";
+const string kOnMediaListHeartbeat = HOOK_FIELD"on_media_list_heartbeat";
 const string kAdminParams = HOOK_FIELD"admin_params";
 
 onceToken token([](){
@@ -60,6 +63,8 @@ onceToken token([](){
     mINI::Instance()[kOnStreamNoneReader] = "";
     mINI::Instance()[kOnHttpAccess] = "";
     mINI::Instance()[kOnServerStarted] = "";
+    mINI::Instance()[kOnPayloadHeartbeat] = "";
+    mINI::Instance()[kOnMediaListHeartbeat] = "";
     mINI::Instance()[kAdminParams] = "secret=035c73f7-bb6b-4889-a715-d9eb2d1925cc";
 },nullptr);
 }//namespace Hook
@@ -166,6 +171,23 @@ static void reportServerStarted(){
     }
     //执行hook
     do_http_hook(hook_server_started,body, nullptr);
+}
+
+static void startHeartbeatTimer() {
+    GET_CONFIG(bool, hook_enable, Hook::kEnable);
+    GET_CONFIG(float, payloadHeartbeat, General::kpayloadHeartbeat);
+    GET_CONFIG(float, mediaListHeartbeat, General::kmediaListHeartbeat);
+
+    if (hook_enable){
+        HeartbeatManager::Instance().regist(Broadcast::kBroadcastPayloadHeartbeat, payloadHeartbeat, []() {
+            NoticeCenter::Instance().emitEvent(Broadcast::kBroadcastPayloadHeartbeat);
+            return true;
+            }, EventPollerPool::Instance().getPoller());
+        HeartbeatManager::Instance().regist(Broadcast::kBroadcastMediaListHeartbeat, mediaListHeartbeat, []() {
+            NoticeCenter::Instance().emitEvent(Broadcast::kBroadcastMediaListHeartbeat);
+            return true;
+            }, EventPollerPool::Instance().getPoller());
+      }
 }
 
 void installWebHook(){
@@ -456,10 +478,118 @@ void installWebHook(){
         });
     });
 
+
+
+    NoticeCenter::Instance().addListener(nullptr, Broadcast::kBroadcastPayloadHeartbeat, [](BroadcastOnPayloadHeartbeatArgs) {
+        GET_CONFIG(string, payload_heartbeat, Hook::kOnPayloadHeartbeat);
+        if (!hook_enable || payload_heartbeat.empty()) {
+            return;
+        }
+        ArgsType body;
+        body["data"]["MediaSource"] = (Json::UInt64)(ObjectStatistic<MediaSource>::count());
+        body["data"]["MultiMediaSourceMuxer"] = (Json::UInt64)(ObjectStatistic<MultiMediaSourceMuxer>::count());
+
+        body["data"]["TcpServer"] = (Json::UInt64)(ObjectStatistic<TcpServer>::count());
+        body["data"]["TcpSession"] = (Json::UInt64)(ObjectStatistic<TcpSession>::count());
+        body["data"]["TcpClient"] = (Json::UInt64)(ObjectStatistic<TcpClient>::count());
+        body["data"]["Socket"] = (Json::UInt64)(ObjectStatistic<Socket>::count());
+
+        body["data"]["FrameImp"] = (Json::UInt64)(ObjectStatistic<FrameImp>::count());
+        body["data"]["Frame"] = (Json::UInt64)(ObjectStatistic<Frame>::count());
+
+        body["data"]["Buffer"] = (Json::UInt64)(ObjectStatistic<Buffer>::count());
+        body["data"]["BufferRaw"] = (Json::UInt64)(ObjectStatistic<BufferRaw>::count());
+        body["data"]["BufferLikeString"] = (Json::UInt64)(ObjectStatistic<BufferLikeString>::count());
+        body["data"]["BufferList"] = (Json::UInt64)(ObjectStatistic<BufferList>::count());
+
+        body["data"]["RtpPacket"] = (Json::UInt64)(ObjectStatistic<RtpPacket>::count());
+        body["data"]["RtmpPacket"] = (Json::UInt64)(ObjectStatistic<RtmpPacket>::count());
+#ifdef ENABLE_MEM_DEBUG
+        auto bytes = getTotalMemUsage();
+        body["data"]["totalMemUsage"] = (Json::UInt64)bytes;
+        body["data"]["totalMemUsageMB"] = (int)(bytes / 1024 / 1024);
+#endif
+        //执行hook
+        do_http_hook(payload_heartbeat, body, nullptr);
+
+    });
+
+
+    static auto makeMediaSourceJson = [](const MediaSource::Ptr& media) {
+        Value item;
+        item["schema"] = media->getSchema();
+        item["vhost"] = media->getVhost();
+        item["app"] = media->getApp();
+        item["stream"] = media->getId();
+        item["createStamp"] = (Json::UInt64) media->getCreateStamp();
+        item["aliveSecond"] = (Json::UInt64) media->getAliveSecond();
+        item["bytesSpeed"] = media->getBytesSpeed();
+        item["readerCount"] = media->readerCount();
+        item["totalReaderCount"] = media->totalReaderCount();
+        item["originType"] = (int)media->getOriginType();
+        item["originTypeStr"] = getOriginTypeString(media->getOriginType());
+        item["originUrl"] = media->getOriginUrl();
+        auto originSock = media->getOriginSock();
+        if (originSock) {
+            item["originSock"]["local_ip"] = originSock->get_local_ip();
+            item["originSock"]["local_port"] = originSock->get_local_port();
+            item["originSock"]["peer_ip"] = originSock->get_peer_ip();
+            item["originSock"]["peer_port"] = originSock->get_peer_port();
+            item["originSock"]["identifier"] = originSock->getIdentifier();
+        }
+        else {
+            item["originSock"] = Json::nullValue;
+        }
+
+        for (auto& track : media->getTracks()) {
+            Value obj;
+            auto codec_type = track->getTrackType();
+            obj["codec_id"] = track->getCodecId();
+            obj["codec_id_name"] = track->getCodecName();
+            obj["ready"] = track->ready();
+            obj["codec_type"] = codec_type;
+            switch (codec_type) {
+            case TrackAudio: {
+                auto audio_track = dynamic_pointer_cast<AudioTrack>(track);
+                obj["sample_rate"] = audio_track->getAudioSampleRate();
+                obj["channels"] = audio_track->getAudioChannel();
+                obj["sample_bit"] = audio_track->getAudioSampleBit();
+                break;
+            }
+            case TrackVideo: {
+                auto video_track = dynamic_pointer_cast<VideoTrack>(track);
+                obj["width"] = video_track->getVideoWidth();
+                obj["height"] = video_track->getVideoHeight();
+                obj["fps"] = round(video_track->getVideoFps());
+                break;
+            }
+            default:
+                break;
+            }
+            item["tracks"].append(obj);
+        }
+        return item;
+    };
+
+    NoticeCenter::Instance().addListener(nullptr, Broadcast::kBroadcastMediaListHeartbeat, [](BroadcastOnMediaListHeartbeatArgs) {
+        GET_CONFIG(string, media_list_heartbeat, Hook::kOnMediaListHeartbeat);
+        if (!hook_enable || media_list_heartbeat.empty()) {
+            return;
+        }
+        ArgsType body;
+        MediaSource::for_each_media([&](const MediaSource::Ptr& media) {
+            body["data"].append(makeMediaSourceJson(media));
+        });
+        //执行hook
+        do_http_hook(media_list_heartbeat, body, nullptr);
+    });
+
     //汇报服务器重新启动
     reportServerStarted();
+    //启动心跳计时器任务
+    startHeartbeatTimer();
 }
 
 void unInstallWebHook(){
-
+    HeartbeatManager::Instance().stop();
 }

@@ -53,6 +53,8 @@ const string kBroadcastShellLogin = "kBroadcastShellLogin";
 const string kBroadcastNotFoundStream = "kBroadcastNotFoundStream";
 const string kBroadcastStreamNoneReader = "kBroadcastStreamNoneReader";
 const string kBroadcastHttpBeforeAccess = "kBroadcastHttpBeforeAccess";
+const string kBroadcastPayloadHeartbeat = "kBroadcastPayloadHeartbeat";
+const string kBroadcastMediaListHeartbeat = "kBroadcastMediaListHeartbeat";
 } //namespace Broadcast
 
 //通用配置项目
@@ -74,6 +76,8 @@ const string kRtspDemand = GENERAL_FIELD"rtsp_demand";
 const string kRtmpDemand = GENERAL_FIELD"rtmp_demand";
 const string kTSDemand = GENERAL_FIELD"ts_demand";
 const string kFMP4Demand = GENERAL_FIELD"fmp4_demand";
+const string kpayloadHeartbeat = GENERAL_FIELD"payloadHeartbeat";
+const string kmediaListHeartbeat = GENERAL_FIELD"mediaListHeartbeat";
 
 onceToken token([](){
     mINI::Instance()[kFlowThreshold] = 1024;
@@ -92,6 +96,8 @@ onceToken token([](){
     mINI::Instance()[kRtmpDemand] = 0;
     mINI::Instance()[kTSDemand] = 0;
     mINI::Instance()[kFMP4Demand] = 0;
+    mINI::Instance()[kpayloadHeartbeat] = 20;
+    mINI::Instance()[kmediaListHeartbeat] = 20;
 
 },nullptr);
 

@@ -65,7 +65,6 @@ public:
      */
     bool inputRtp(const Socket::Ptr &sock, const char *data, size_t data_len,
                   const struct sockaddr *addr, uint32_t *dts_out = nullptr);
-
     /**
      * 获取一个rtp处理器
      * @param stream_id 流id
