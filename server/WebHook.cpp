@@ -173,7 +173,7 @@ static void reportServerStarted(){
     do_http_hook(hook_server_started,body, nullptr);
 }
 
-static void startHeartbeatTimer() {
+static void startHeartbeatHook() {
     GET_CONFIG(bool, hook_enable, Hook::kEnable);
     GET_CONFIG(float, payloadHeartbeat, General::kpayloadHeartbeat);
     GET_CONFIG(float, mediaListHeartbeat, General::kmediaListHeartbeat);
@@ -587,7 +587,7 @@ void installWebHook(){
     //汇报服务器重新启动
     reportServerStarted();
     //启动心跳计时器任务
-    startHeartbeatTimer();
+    startHeartbeatHook();
 }
 
 void unInstallWebHook(){

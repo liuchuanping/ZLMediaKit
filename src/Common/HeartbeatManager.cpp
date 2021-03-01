@@ -12,7 +12,9 @@
 
 namespace mediakit {
 
-	HeartbeatManager::HeartbeatManager() {}
+	HeartbeatManager::HeartbeatManager() {
+		_isRunning = true;
+	}
 	HeartbeatManager::~HeartbeatManager() {}
 
 	INSTANCE_IMP(HeartbeatManager);
