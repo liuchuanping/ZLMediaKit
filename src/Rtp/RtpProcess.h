@@ -92,6 +92,7 @@ private:
     std::shared_ptr<FILE> _save_file_video;
     ProcessInterface::Ptr _process;
     MultiMediaSourceMuxer::Ptr _muxer;
+    MultiMediaSourceMuxer::Ptr _muxer_only_audio;
     atomic_bool _stop_rtp_check{false};
     atomic_flag _busy_flag{false};
 };

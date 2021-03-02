@@ -13,7 +13,8 @@
 #include "RtpProcess.h"
 #include "Http/HttpTSPlayer.h"
 
-#define RTP_APP_NAME "rtp"
+#define RTP_APP_NAME "live"
+#define AUDIO_APP_NAME "audio"
 
 namespace mediakit {
 
@@ -115,14 +116,23 @@ void RtpProcess::inputFrame(const Frame::Ptr &frame) {
         fwrite((uint8_t *) frame->data(), frame->size(), 1, _save_file_video.get());
     }
     _muxer->inputFrame(frame);
+    if (_muxer_only_audio && frame->getTrackType() == TrackAudio) {
+        _muxer_only_audio->inputFrame(frame);
+    }
 }
 
 void RtpProcess::addTrack(const Track::Ptr &track) {
     _muxer->addTrack(track);
+    if (_muxer_only_audio && track->getTrackType() == TrackAudio) {
+        _muxer_only_audio->addTrack(track);
+    }
 }
 
 void RtpProcess::addTrackCompleted() {
     _muxer->addTrackCompleted();
+    if (_muxer_only_audio) {
+        _muxer_only_audio->addTrackCompleted();
+    }
 }
 
 bool RtpProcess::alive() {
@@ -178,7 +188,8 @@ string RtpProcess::getIdentifier() const {
 }
 
 int RtpProcess::getTotalReaderCount() {
-    return _muxer ? _muxer->totalReaderCount() : 0;
+    return (_muxer ? _muxer->totalReaderCount() : 0) 
+        + (_muxer_only_audio ? _muxer_only_audio->totalReaderCount() : 0);
 }
 
 void RtpProcess::setListener(const std::weak_ptr<MediaSourceEvent> &listener) {
@@ -198,6 +209,11 @@ void RtpProcess::emitOnPublish() {
                                                                          strongSelf->_media_info._streamid, 0.0f,
                                                                          true, true, enableHls, enableMP4);
             strongSelf->_muxer->setMediaListener(strongSelf);
+            strongSelf->_muxer_only_audio = std::make_shared<MultiMediaSourceMuxer>(strongSelf->_media_info._vhost,
+                                                                                    AUDIO_APP_NAME,
+                                                                                    strongSelf->_media_info._streamid, 0.0f,
+                                                                                    true, true, false, false);
+            strongSelf->_muxer_only_audio->setMediaListener(strongSelf);
             InfoP(strongSelf) << "允许RTP推流";
         } else {
             WarnP(strongSelf) << "禁止RTP推流:" << err;

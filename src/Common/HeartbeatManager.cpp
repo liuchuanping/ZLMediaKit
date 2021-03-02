@@ -13,14 +13,12 @@
 namespace mediakit {
 
 	HeartbeatManager::HeartbeatManager() {
-		_isRunning = true;
 	}
 	HeartbeatManager::~HeartbeatManager() {}
 
 	INSTANCE_IMP(HeartbeatManager);
 
 	void HeartbeatManager::regist(const string kBroadcast,float second,const function<bool()>& cb,const EventPoller::Ptr& poller,bool continueWhenException) {
-		//创建超时管理定时器
 		if (second > 0 && !kBroadcast.empty()) {
 			Timer::Ptr& ref = _timer_map[kBroadcast];
 			auto isRunning = _isRunning;

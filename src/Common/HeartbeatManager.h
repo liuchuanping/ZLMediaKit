@@ -40,7 +40,7 @@ public:
 
 	void stop();
 private:
-	bool _isRunning;
+	bool _isRunning = true;
 	std::unordered_map<string, Timer::Ptr> _timer_map;
 };
 
