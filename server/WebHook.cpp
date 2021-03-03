@@ -9,6 +9,7 @@
  */
 
 #include <sstream>
+#include <math.h>
 #include "Util/logger.h"
 #include "Util/onceToken.h"
 #include "Util/NoticeCenter.h"
